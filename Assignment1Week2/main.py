@@ -34,6 +34,12 @@ def visualize_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray) -> None:
     plt.savefig('training_data_plot.png')
 
 
+def train_logistic_regression(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
+    clf = LogisticRegression()
+    clf.fit(X, y)
+    return clf
+
+
 def main():
     df = read_data(DATA_PATH)
     X1, X2, y = parse_data(df)
@@ -43,11 +49,10 @@ def main():
     visualize_data(X1, X2, y)
 
     # (a)(ii) Train logistic regression model
-    clf = LogisticRegression()
-    clf.fit(X, y)
+    clf = train_logistic_regression(X, y)
     predictions = clf.predict(X)
     parameters = np.concatenate((clf.intercept_, clf.coef_.flatten()))
-    print("Model parameters:")
+    print(f"Model parameters: {parameters}")
     print(f"Intercept: {clf.intercept_[0]}")
     print(f"Coefficients: {clf.coef_[0]}")
 
