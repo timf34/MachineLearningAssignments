@@ -18,20 +18,58 @@ def parse_data(df: pd.DataFrame) -> (np.ndarray, np.ndarray, np.ndarray):
     return X1, X2, y
 
 
-def visualize_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray) -> None:
+def plot_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, markers: dict, title: str, file_name: str) -> None:
     plt.figure()
     for xi1, xi2, yi in zip(X1, X2, y):
-        if yi == 1:
-            plt.plot(xi1, xi2, '+', color='blue', label='Class +1' if 'Class +1' not in plt.gca().get_legend_handles_labels()[1] else "")
-        else:
-            plt.plot(xi1, xi2, '+', color='green', label='Class -1' if 'Class -1' not in plt.gca().get_legend_handles_labels()[1] else "")
+        label = f"Class {yi}" if f"Class {yi}" not in plt.gca().get_legend_handles_labels()[1] else ""
+        plt.plot(xi1, xi2, markers[yi]['marker'], color=markers[yi]['color'], label=label)
 
-    plt.xlabel('Feature 1 (x_1')
+    plt.xlabel('Feature 1 (x_1)')
     plt.ylabel('Feature 2 (x_2)')
-    plt.title('Training Data')
+    plt.title(title)
     plt.legend()
     plt.grid(True)
-    plt.savefig('training_data_plot.png')
+    plt.savefig(file_name)
+
+
+def visualize_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray) -> None:
+    markers = {
+        1: {'marker': '+', 'color': 'blue'},
+        -1: {'marker': '+', 'color': 'green'}
+    }
+    plot_data(X1, X2, y, markers, 'Training Data', 'training_data_plot.png')
+
+
+def visualize_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predictions: np.ndarray, clf: LogisticRegression) -> None:
+    plt.figure()
+
+    # Original training data markers
+    markers = {
+        1: {'marker': '+', 'color': 'blue'},
+        -1: {'marker': 'o', 'color': 'red'}
+    }
+    plot_data(X1, X2, y, markers, 'Training Data and Predictions', 'training_data_with_predictions.png')
+
+    # Predicted data markers
+    pred_markers = {
+        1: {'marker': 'x', 'color': 'green'},
+        -1: {'marker': 's', 'color': 'orange'}
+    }
+    plot_data(X1, X2, predictions, pred_markers, '', '')
+
+    # Plot decision boundary
+    xmin, xmax = X1.min() - 0.1, X1.max() + 0.1
+    ymin, ymax = X2.min() - 0.1, X2.max() + 0.1
+    xx, yy = np.meshgrid(np.linspace(xmin, xmax, 200), np.linspace(ymin, ymax, 200))
+    grid = np.c_[xx.ravel(), yy.ravel()]
+    probs = clf.predict_proba(grid)[:, 1].reshape(xx.shape)
+    plt.contour(xx, yy, probs, levels=[0.5], linewidths=2, colors='black', linestyles='dashed')
+
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.grid(True)
+    plt.legend()
+    plt.savefig('training_data_with_predictions.png')
 
 
 def train_logistic_regression(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
@@ -58,44 +96,13 @@ def main():
 
     # Discuss feature influence
     coef = clf.coef_[0]
-    if abs(coef[0]) > abs(coef[1]):
-        most_influential_feature = 'Feature 1'
-    else:
-        most_influential_feature = 'Feature 2'
+    most_influential_feature = 'Feature 1' if abs(coef[0]) > abs(coef[1]) else 'Feature 2'
     print(f"The most influential feature is {most_influential_feature}")
-
     print(f"Feature 1 coefficient ({coef[0]}): {'increases' if coef[0]>0 else 'decreases'} the prediction")
     print(f"Feature 2 coefficient ({coef[1]}): {'increases' if coef[1]>0 else 'decreases'} the prediction")
 
     # (a)(iii) Add predictions to the plot
-    plt.figure()
-    # Plot the original data
-    for xi1, xi2, yi in zip(X1, X2, y):
-        if yi == 1:
-            plt.plot(xi1, xi2, '+', color='blue', label='Class +1' if 'Class +1' not in plt.gca().get_legend_handles_labels()[1] else "")
-        else:
-            plt.plot(xi1, xi2, 'o', color='red', label='Class -1' if 'Class -1' not in plt.gca().get_legend_handles_labels()[1] else "")
-
-    # Plot predictions
-    for xi1, xi2, pi in zip(X1, X2, predictions):
-        if pi == 1:
-            plt.plot(xi1, xi2, 'x', color='green', label='Predicted +1' if 'Predicted +1' not in plt.gca().get_legend_handles_labels()[1] else "")
-        else:
-            plt.plot(xi1, xi2, 's', color='orange', label='Predicted -1' if 'Predicted -1' not in plt.gca().get_legend_handles_labels()[1] else "")
-
-    # Plot decision boundary
-    xmin, xmax = X1.min() - 0.1, X1.max() + 0.1
-    ymin, ymax = X2.min() - 0.1, X2.max() + 0.1
-    xx, yy = np.meshgrid(np.linspace(xmin, xmax, 200), np.linspace(ymin, ymax, 200))
-    grid = np.c_[xx.ravel(), yy.ravel()]
-    probs = clf.predict_proba(grid)[:, 1].reshape(xx.shape)
-    plt.contour(xx, yy, probs, levels=[0.5], linewidths=2, colors='black', linestyles='dashed')
-    plt.xlabel('Feature 1')
-    plt.ylabel('Feature 2')
-    plt.title('Training Data and Predictions')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('training_data_with_predictions.png')
+    visualize_predictions(X1, X2, y, predictions, clf)
 
     # (a)(iv) Comment on predictions vs training data
     correct = (predictions == y).sum()
@@ -103,7 +110,6 @@ def main():
     accuracy = correct / total
     print(f"Accuracy on training data: {accuracy*100:.2f}%")
     print("The model predictions match the training data well.")
-
 
 if __name__ == '__main__':
     main()
