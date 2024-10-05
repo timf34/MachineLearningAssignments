@@ -42,7 +42,7 @@ def visualize_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray) -> None:
     plot_data(X1, X2, y, markers, 'Training Data', 'training_data_plot.png')
 
 
-def visualize_linear_classifier_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predictions: np.ndarray, clf: LogisticRegression) -> None:
+def visualize_linear_classifier_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predictions: np.ndarray, clf: LogisticRegression, filename: str) -> None:
     plt.figure()
 
     # Original data markers
@@ -75,7 +75,7 @@ def visualize_linear_classifier_predictions(X1: np.ndarray, X2: np.ndarray, y: n
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, ncol=2)
     plt.grid(True)
     plt.title('Training Data with Predictions and Decision Boundary')
-    plt.savefig('training_data_with_predictions.png', bbox_inches='tight')
+    plt.savefig(filename, bbox_inches='tight')
 
 
 def train_logistic_regression(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
@@ -90,22 +90,40 @@ def train_svm(X: np.ndarray, y: np.ndarray, C: float) -> LinearSVC:
     return clf
 
 
-def analyze_svm_for_different_C(X: np.ndarray, X1: np.ndarray, X2: np.ndarray, y: np.ndarray, C_values: list) -> None:
-    for C in C_values:
-        clf = train_svm(X, y, C)
-        predictions = clf.predict(X)
+def visualize_svm_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predictions: np.ndarray, clf: LinearSVC, filename: str) -> None:
+    plt.figure(figsize=(10, 8))
 
-        # Print model parameters
-        parameters = np.concatenate((clf.intercept_, clf.coef_.flatten()))
-        print(f"Model parameters for SVM with C={C}: {parameters}")
-        print(f"Intercept: {clf.intercept_[0]}")
-        print(f"Coefficients: {clf.coef_[0]}")
+    # Original data markers
+    markers = {
+        1: {'marker': 'o', 'color': 'green', 'label': 'Actual Class 1'},
+        -1: {'marker': 'o', 'color': 'blue', 'label': 'Actual Class -1'}
+    }
+    for xi1, xi2, yi in zip(X1, X2, y):
+        plt.plot(xi1, xi2, markers[yi]['marker'], color=markers[yi]['color'], label=markers[yi]['label'] if markers[yi]['label'] not in plt.gca().get_legend_handles_labels()[1] else "")
 
-        # Accuracy
-        accuracy = (predictions == y).mean() * 100
-        print(f"Accuracy for C={C}: {accuracy:.2f}%")
-        print()
+    # Predicted data markers
+    pred_markers = {
+        1: {'marker': 'x', 'color': 'red', 'label': 'Predicted Class 1'},
+        -1: {'marker': 'x', 'color': 'yellow', 'label': 'Predicted Class -1'}
+    }
+    for xi1, xi2, pred in zip(X1, X2, predictions):
+        plt.plot(xi1, xi2, pred_markers[pred]['marker'], color=pred_markers[pred]['color'], label=pred_markers[pred]['label'] if pred_markers[pred]['label'] not in plt.gca().get_legend_handles_labels()[1] else "")
 
+    # Plot decision boundary
+    xmin, xmax = X1.min() - 0.1, X1.max() + 0.1
+    ymin, ymax = X2.min() - 0.1, X2.max() + 0.1
+    xx, yy = np.meshgrid(np.linspace(xmin, xmax, 200), np.linspace(ymin, ymax, 200))
+    Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    plt.contour(xx, yy, Z, levels=[0], linewidths=2, colors='black', linestyles='dashed')
+
+    plt.xlabel('Feature 1 (x_1)')
+    plt.ylabel('Feature 2 (x_2)')
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, ncol=2)
+    plt.grid(True)
+    plt.title('SVM: Training Data with Predictions and Decision Boundary')
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close()
 
 def part_a(X, X1, X2, y):
     # ########### Part A ############
@@ -129,7 +147,7 @@ def part_a(X, X1, X2, y):
     print(f"Feature 2 coefficient ({coef[1]}): {'increases' if coef[1]>0 else 'decreases'} the prediction")
 
     # (a)(iii) Add predictions to the plot
-    visualize_linear_classifier_predictions(X1, X2, y, predictions, clf)
+    visualize_linear_classifier_predictions(X1, X2, y, predictions, clf, "visualize_linear_classifier_predictions.png")
 
     # (a)(iv) Comment on predictions vs training data
 
@@ -144,6 +162,36 @@ def part_a(X, X1, X2, y):
     print(f"Accuracy on training data: {accuracy*100:.2f}%")
 
 
+def part_b(X, X1, X2, y):
+    # Train and analyze SVMs for different values of C
+    C_values = [0.001, 1, 100]
+    for C in C_values:
+        print(f"Training SVM with C={C}")
+        clf = train_svm(X, y, C)
+        predictions = clf.predict(X)
+
+        # Print model parameters
+        parameters = np.concatenate((clf.intercept_, clf.coef_.flatten()))
+        print(f"Model parameters for SVM with C={C}: {parameters}")
+        print(f"Intercept: {clf.intercept_[0]}")
+        print(f"Coefficients: {clf.coef_[0]}")
+
+        # Accuracy
+        accuracy = (predictions == y).mean() * 100
+        print(f"Accuracy for C={C}: {accuracy:.2f}%")
+
+        # Other metrics
+        report = classification_report(y, predictions)
+        conf_matrix = confusion_matrix(y, predictions)
+        print(f"Classification report:\n{report}")
+        print(f"\nConfusion matrix:\n{conf_matrix}")
+
+        # Visualise the predictions on top of the base data
+        visualize_svm_predictions(X1, X2, y, predictions, clf, f"svm_predictions_C_{C}.png")
+
+        print("\n\n ------------------- \n\n")
+
+
 def main():
     df = read_data(DATA_PATH)
     X1, X2, y = parse_data(df)
@@ -152,11 +200,8 @@ def main():
     # Part A
     # part_a(X, X1, X2, y)
 
-    # ########### Part B ############
-
-    # Train and analyze SVMs for different values of C
-    # C_values = [0.001, 1, 100]
-    # analyze_svm_for_different_C(X, X1, X2, y, C_values)
+    # Part B
+    part_b(X, X1, X2, y)
 
 
 if __name__ == '__main__':
