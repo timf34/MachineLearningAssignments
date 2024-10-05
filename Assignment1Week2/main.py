@@ -1,8 +1,9 @@
-import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.svm import LinearSVC
 
 DATA_PATH: str = "./data/week2.csv"
 
@@ -19,7 +20,7 @@ def parse_data(df: pd.DataFrame) -> (np.ndarray, np.ndarray, np.ndarray):
 
 
 def plot_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, markers: dict, title: str, file_name: str) -> None:
-    plt.figure()
+    plt.figure(figsize=(8, 6))  # Increase figure size for better layout
     for xi1, xi2, yi in zip(X1, X2, y):
         label = f"Class {yi}" if f"Class {yi}" not in plt.gca().get_legend_handles_labels()[1] else ""
         plt.plot(xi1, xi2, markers[yi]['marker'], color=markers[yi]['color'], label=label)
@@ -27,35 +28,38 @@ def plot_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, markers: dict, titl
     plt.xlabel('Feature 1 (x_1)')
     plt.ylabel('Feature 2 (x_2)')
     plt.title(title)
-    plt.legend()
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), fancybox=True, shadow=True, ncol=2)
     plt.grid(True)
-    plt.savefig(file_name)
 
+    plt.tight_layout()  # Adjust the layout so everything fits well
+    plt.savefig(file_name, bbox_inches='tight')
 
 def visualize_data(X1: np.ndarray, X2: np.ndarray, y: np.ndarray) -> None:
     markers = {
-        1: {'marker': '+', 'color': 'blue'},
-        -1: {'marker': '+', 'color': 'green'}
+        1: {'marker': '+', 'color': 'green'},
+        -1: {'marker': 'o', 'color': 'blue'}
     }
     plot_data(X1, X2, y, markers, 'Training Data', 'training_data_plot.png')
 
 
-def visualize_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predictions: np.ndarray, clf: LogisticRegression) -> None:
+def visualize_linear_classifier_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predictions: np.ndarray, clf: LogisticRegression) -> None:
     plt.figure()
 
-    # Original training data markers
+    # Original data markers
     markers = {
-        1: {'marker': '+', 'color': 'blue'},
-        -1: {'marker': 'o', 'color': 'red'}
+        1: {'marker': 'o', 'color': 'green', 'label': 'Actual Class 1'},
+        -1: {'marker': 'o', 'color': 'blue', 'label': 'Actual Class -1'}
     }
-    plot_data(X1, X2, y, markers, 'Training Data and Predictions', 'training_data_with_predictions.png')
+    for xi1, xi2, yi in zip(X1, X2, y):
+        plt.plot(xi1, xi2, markers[yi]['marker'], color=markers[yi]['color'], label=markers[yi]['label'] if markers[yi]['label'] not in plt.gca().get_legend_handles_labels()[1] else "")
 
     # Predicted data markers
     pred_markers = {
-        1: {'marker': 'x', 'color': 'green'},
-        -1: {'marker': 's', 'color': 'orange'}
+        1: {'marker': 'x', 'color': 'red', 'label': 'Predicted Class 1'},
+        -1: {'marker': 's', 'color': 'purple', 'label': 'Predicted Class -1'}
     }
-    plot_data(X1, X2, predictions, pred_markers, '', '')
+    for xi1, xi2, pred in zip(X1, X2, predictions):
+        plt.plot(xi1, xi2, pred_markers[pred]['marker'], color=pred_markers[pred]['color'], label=pred_markers[pred]['label'] if pred_markers[pred]['label'] not in plt.gca().get_legend_handles_labels()[1] else "")
 
     # Plot decision boundary
     xmin, xmax = X1.min() - 0.1, X1.max() + 0.1
@@ -65,11 +69,12 @@ def visualize_predictions(X1: np.ndarray, X2: np.ndarray, y: np.ndarray, predict
     probs = clf.predict_proba(grid)[:, 1].reshape(xx.shape)
     plt.contour(xx, yy, probs, levels=[0.5], linewidths=2, colors='black', linestyles='dashed')
 
-    plt.xlabel('Feature 1')
-    plt.ylabel('Feature 2')
+    plt.xlabel('Feature 1 (x_1)')
+    plt.ylabel('Feature 2 (x_2)')
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, ncol=2)
     plt.grid(True)
-    plt.legend()
-    plt.savefig('training_data_with_predictions.png')
+    plt.title('Training Data with Predictions and Decision Boundary')
+    plt.savefig('training_data_with_predictions.png', bbox_inches='tight')
 
 
 def train_logistic_regression(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
@@ -78,10 +83,35 @@ def train_logistic_regression(X: np.ndarray, y: np.ndarray) -> LogisticRegressio
     return clf
 
 
+def train_svm(X: np.ndarray, y: np.ndarray, C: float) -> LinearSVC:
+    clf = LinearSVC(C=C, max_iter=10000)
+    clf.fit(X, y)
+    return clf
+
+
+def analyze_svm_for_different_C(X: np.ndarray, X1: np.ndarray, X2: np.ndarray, y: np.ndarray, C_values: list) -> None:
+    for C in C_values:
+        clf = train_svm(X, y, C)
+        predictions = clf.predict(X)
+
+        # Print model parameters
+        parameters = np.concatenate((clf.intercept_, clf.coef_.flatten()))
+        print(f"Model parameters for SVM with C={C}: {parameters}")
+        print(f"Intercept: {clf.intercept_[0]}")
+        print(f"Coefficients: {clf.coef_[0]}")
+
+        # Accuracy
+        accuracy = (predictions == y).mean() * 100
+        print(f"Accuracy for C={C}: {accuracy:.2f}%")
+        print()
+
+
 def main():
     df = read_data(DATA_PATH)
     X1, X2, y = parse_data(df)
     X = np.column_stack((X1, X2))
+
+    # ########### Part A ############
 
     # (a)(i) Visualize the data
     visualize_data(X1, X2, y)
@@ -101,15 +131,27 @@ def main():
     print(f"Feature 1 coefficient ({coef[0]}): {'increases' if coef[0]>0 else 'decreases'} the prediction")
     print(f"Feature 2 coefficient ({coef[1]}): {'increases' if coef[1]>0 else 'decreases'} the prediction")
 
+    report = classification_report(y, predictions)
+    conf_matrix = confusion_matrix(y, predictions)
+    print(f"Classification report:\n{report}")
+    print(f"\nConfusion matrix:\n{conf_matrix}")
+
     # (a)(iii) Add predictions to the plot
-    visualize_predictions(X1, X2, y, predictions, clf)
+    visualize_linear_classifier_predictions(X1, X2, y, predictions, clf)
 
     # (a)(iv) Comment on predictions vs training data
     correct = (predictions == y).sum()
     total = len(y)
     accuracy = correct / total
     print(f"Accuracy on training data: {accuracy*100:.2f}%")
-    print("The model predictions match the training data well.")
+
+
+    # ########### Part B ############
+
+    # Train and analyze SVMs for different values of C
+    # C_values = [0.001, 1, 100]
+    # analyze_svm_for_different_C(X, X1, X2, y, C_values)
+
 
 if __name__ == '__main__':
     main()
