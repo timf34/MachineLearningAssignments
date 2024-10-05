@@ -69,6 +69,7 @@ def visualize_linear_classifier_predictions(X1: np.ndarray, X2: np.ndarray, y: n
     probs = clf.predict_proba(grid)[:, 1].reshape(xx.shape)
     plt.contour(xx, yy, probs, levels=[0.5], linewidths=2, colors='black', linestyles='dashed')
 
+
     plt.xlabel('Feature 1 (x_1)')
     plt.ylabel('Feature 2 (x_2)')
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, ncol=2)
@@ -106,11 +107,7 @@ def analyze_svm_for_different_C(X: np.ndarray, X1: np.ndarray, X2: np.ndarray, y
         print()
 
 
-def main():
-    df = read_data(DATA_PATH)
-    X1, X2, y = parse_data(df)
-    X = np.column_stack((X1, X2))
-
+def part_a(X, X1, X2, y):
     # ########### Part A ############
 
     # (a)(i) Visualize the data
@@ -131,20 +128,29 @@ def main():
     print(f"Feature 1 coefficient ({coef[0]}): {'increases' if coef[0]>0 else 'decreases'} the prediction")
     print(f"Feature 2 coefficient ({coef[1]}): {'increases' if coef[1]>0 else 'decreases'} the prediction")
 
+    # (a)(iii) Add predictions to the plot
+    visualize_linear_classifier_predictions(X1, X2, y, predictions, clf)
+
+    # (a)(iv) Comment on predictions vs training data
+
     report = classification_report(y, predictions)
     conf_matrix = confusion_matrix(y, predictions)
     print(f"Classification report:\n{report}")
     print(f"\nConfusion matrix:\n{conf_matrix}")
 
-    # (a)(iii) Add predictions to the plot
-    visualize_linear_classifier_predictions(X1, X2, y, predictions, clf)
-
-    # (a)(iv) Comment on predictions vs training data
     correct = (predictions == y).sum()
     total = len(y)
     accuracy = correct / total
     print(f"Accuracy on training data: {accuracy*100:.2f}%")
 
+
+def main():
+    df = read_data(DATA_PATH)
+    X1, X2, y = parse_data(df)
+    X = np.column_stack((X1, X2))
+
+    # Part A
+    # part_a(X, X1, X2, y)
 
     # ########### Part B ############
 
