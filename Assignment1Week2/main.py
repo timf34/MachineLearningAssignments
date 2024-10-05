@@ -192,6 +192,100 @@ def part_b(X, X1, X2, y):
         print("\n\n ------------------- \n\n")
 
 
+def create_additional_features(X) -> np.ndarray:
+    X_squared = X ** 2
+    return np.hstack((X, X_squared))
+
+
+def part_c(X, X1, X2, y):
+    # (i) Create additional features and train logistic regression
+    X_extended = create_additional_features(X)
+    clf = train_logistic_regression(X_extended, y)
+
+    print("Logistic Regression with Extended Features:")
+    print(f"Intercept: {clf.intercept_[0]}")
+    print(f"Coefficients: {clf.coef_[0]}")
+
+    # (ii) Predict and plot
+    predictions = clf.predict(X_extended)
+    visualize_extended_predictions(X1, X2, y, predictions, clf, "extended_predictions.png")
+
+    # (iii) Compare with baseline
+    compare_with_baseline(y, predictions)
+
+    # (iv) Plot decision boundary (bonus)
+    plot_decision_boundary(X1, X2, y, clf, "extended_decision_boundary.png")
+
+
+def visualize_extended_predictions(X1, X2, y, predictions, clf, filename):
+    plt.figure(figsize=(10, 8))
+
+    # Plot original data
+    plt.scatter(X1[y == 1], X2[y == 1], c='green', marker='o', label='Actual Class 1')
+    plt.scatter(X1[y == -1], X2[y == -1], c='blue', marker='o', label='Actual Class -1')
+
+    # Plot predictions
+    plt.scatter(X1[predictions == 1], X2[predictions == 1], c='red', marker='x', label='Predicted Class 1')
+    plt.scatter(X1[predictions == -1], X2[predictions == -1], c='yellow', marker='x', label='Predicted Class -1')
+
+    plt.xlabel('Feature 1 (x_1)')
+    plt.ylabel('Feature 2 (x_2)')
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, ncol=2)
+    plt.grid(True)
+    plt.title('Extended Features: Training Data with Predictions')
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close()
+
+
+def compare_with_baseline(y, predictions):
+    # Baseline: always predict the most common class
+    most_common_class = np.sign(np.sum(y))
+    baseline_predictions = np.full_like(y, most_common_class)
+
+    print("\nComparison with Baseline:")
+    print("Extended Logistic Regression:")
+    print(classification_report(y, predictions, zero_division=0))
+    print("\nBaseline (Most Common Class):")
+    print(classification_report(y, baseline_predictions, zero_division=0))
+
+    # Accuracy
+    accuracy = (predictions == y).mean() * 100
+    baseline_accuracy = (baseline_predictions == y).mean() * 100
+    print(f"\nAccuracy for Extended Logistic Regression: {accuracy:.2f}%")
+    print(f"Accuracy for Baseline: {baseline_accuracy:.2f}%")
+
+
+def plot_decision_boundary(X1, X2, y, clf, filename):
+    plt.figure(figsize=(10, 8))
+
+    # Plot original data
+    plt.scatter(X1[y == 1], X2[y == 1], c='green', marker='o', label='Class 1')
+    plt.scatter(X1[y == -1], X2[y == -1], c='blue', marker='o', label='Class -1')
+
+    # Create a grid of points
+    xx, yy = np.meshgrid(np.linspace(X1.min() - 0.5, X1.max() + 0.5, 100),
+                         np.linspace(X2.min() - 0.5, X2.max() + 0.5, 100))
+
+    # Create extended features for the grid
+    grid = np.c_[xx.ravel(), yy.ravel()]
+    grid_extended = create_additional_features(grid)
+
+    # Get predictions for the grid
+    Z = clf.predict(grid_extended)
+    Z = Z.reshape(xx.shape)
+
+    # Plot decision boundary
+    plt.contour(xx, yy, Z, colors='k', levels=[0], alpha=0.5, linestyles=['--'])
+
+    plt.xlabel('Feature 1 (x_1)')
+    plt.ylabel('Feature 2 (x_2)')
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fancybox=True, shadow=True, ncol=2)
+    plt.grid(True)
+    plt.title('Extended Features: Decision Boundary')
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close()
+
+
 def main():
     df = read_data(DATA_PATH)
     X1, X2, y = parse_data(df)
@@ -201,8 +295,10 @@ def main():
     # part_a(X, X1, X2, y)
 
     # Part B
-    part_b(X, X1, X2, y)
+    # part_b(X, X1, X2, y)
 
+    # Part C
+    part_c(X, X1, X2, y)
 
 if __name__ == '__main__':
     main()
