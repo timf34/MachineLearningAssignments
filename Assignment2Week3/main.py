@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import Lasso, Ridge
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error
 from typing import List, Dict, Tuple
 
 DATA_PATH = "./data/week3.csv"
@@ -146,6 +148,79 @@ def compare_models() -> None:
     visualize_predictions("Ridge", DATA_PATH)
 
 
+def cross_validate_models() -> None:
+    """
+    Perform 5-fold cross-validation for both Lasso and Ridge regression
+    and plot error bars for different C values
+    """
+    # Load and prepare data
+    data = read_data(DATA_PATH)
+    X, y = parse_data(data)
+
+    # Create polynomial features
+    poly = PolynomialFeatures(degree=5, include_bias=False)
+    X_poly = poly.fit_transform(X)
+
+    # Define C values on a logarithmic scale
+    # We choose a wider range than before to better understand the error patterns
+    # Starting from 0.01 to capture high regularization effects
+    # Up to 10000 to see if the error stabilizes or starts increasing
+    C_values = np.logspace(-2, 4, 20)  # 20 points from 10^-2 to 10^4
+
+    # Initialize arrays to store results
+    models = {
+        "Lasso": Lasso,
+        "Ridge": Ridge
+    }
+
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+    for model_name, model_class in models.items():
+        errors = []
+
+        for C in C_values:
+            fold_errors = []
+
+            for train_idx, val_idx in kf.split(X_poly):
+                # Split data
+                X_train, X_val = X_poly[train_idx], X_poly[val_idx]
+                y_train, y_val = y[train_idx], y[val_idx]
+
+                # Train model
+                model = model_class(alpha=1 / (2 * C), max_iter=10000)
+                model.fit(X_train, y_train)
+
+                # Evaluate
+                y_pred = model.predict(X_val)
+                mse = mean_squared_error(y_val, y_pred)
+                fold_errors.append(mse)
+
+            errors.append(fold_errors)
+
+        # Convert to numpy array for easier calculations
+        errors = np.array(errors)
+        mean_errors = np.mean(errors, axis=1)
+        std_errors = np.std(errors, axis=1)
+
+        # Plot error bars
+        plt.figure(figsize=(10, 6))
+        plt.errorbar(C_values, mean_errors, yerr=std_errors, fmt='o-', capsize=5,
+                     label=f'{model_name} Regression')
+
+        plt.xscale('log')  # Use log scale for C values
+        plt.yscale('log')  # Use log scale for errors
+        plt.xlabel('C (log scale)')
+        plt.ylabel('Mean Squared Error (log scale)')
+        plt.title(f'5-Fold Cross-Validation Error vs C\n{model_name} Regression')
+        plt.grid(True)
+        plt.legend()
+
+        # Save plot
+        plt.savefig(os.path.join(GRAPHS_PATH, f'{model_name.lower()}_cv_error.png'))
+        plt.close()
+        print(f"{model_name} cross-validation plot saved.")
+
+
 def main():
     # Original parts
     # part_i()
@@ -153,7 +228,9 @@ def main():
     # part_iii(DATA_PATH)
 
     # New comparison analysis
-    compare_models()
+    # compare_models()
+
+    cross_validate_models()
 
 
 if __name__ == "__main__":
