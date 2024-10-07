@@ -75,7 +75,7 @@ def part_ii(data_path: str) -> None:
     feature_names = poly.get_feature_names_out(['X1', 'X2'])
 
     # Define a range of C values
-    C_values = [0.001, 0.01, 0.1, 1, 10, 100, 1000]
+    C_values = [0.1, 1, 10, 100, 1000]
 
     for C in C_values:
         print(f"\nLasso Regression with C = {C}")
