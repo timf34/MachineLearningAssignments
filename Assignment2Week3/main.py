@@ -150,8 +150,9 @@ def compare_models() -> None:
 
 def cross_validate_models() -> None:
     """
-    Perform 5-fold cross-validation for both Lasso and Ridge regression
-    and plot error bars for different C values
+    Perform 5-fold cross-validation for both Lasso and Ridge regression,
+    plot error bars for different C values, and print the optimal C value
+    for each model.
     """
     # Load and prepare data
     data = read_data(DATA_PATH)
@@ -202,13 +203,28 @@ def cross_validate_models() -> None:
         mean_errors = np.mean(errors, axis=1)
         std_errors = np.std(errors, axis=1)
 
+        # Find optimal C value
+        best_idx = np.argmin(mean_errors)
+        best_C = C_values[best_idx]
+        best_error = mean_errors[best_idx]
+        best_std = std_errors[best_idx]
+
+        # Print results
+        print(f"\n{model_name} Regression Results:")
+        print(f"Optimal C value: {best_C:.2e}")
+        print(f"Mean squared error at optimal C: {best_error:.2e} ± {best_std:.2e}")
+
         # Plot error bars
         plt.figure(figsize=(10, 6))
         plt.errorbar(C_values, mean_errors, yerr=std_errors, fmt='o-', capsize=5,
                      label=f'{model_name} Regression')
 
-        plt.xscale('log')  # Use log scale for C values
-        plt.yscale('log')  # Use log scale for errors
+        # Add marker for optimal point
+        plt.plot(best_C, best_error, 'r*', markersize=15,
+                label=f'Optimal C = {best_C:.2e}')
+
+        plt.xscale('log')
+        plt.yscale('log')
         plt.xlabel('C (log scale)')
         plt.ylabel('Mean Squared Error (log scale)')
         plt.title(f'5-Fold Cross-Validation Error vs C\n{model_name} Regression')
