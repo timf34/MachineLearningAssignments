@@ -61,19 +61,63 @@ def augment_features(X1: np.ndarray, X2: np.ndarray, degree: int = 2) -> np.ndar
     return X_poly
 
 
+def train_logistic_regression_cv(X: np.ndarray, y: np.ndarray) -> Tuple[Pipeline, dict]:
+    """
+    Train a Logistic Regression classifier with L2 regularization using cross-validation
+    to select the best polynomial degree and regularization strength.
+
+    Args:
+    X (np.ndarray): Input features
+    y (np.ndarray): Target variable
+
+    Returns:
+    Tuple[Pipeline, dict]: Best estimator and best parameters
+    """
+    # Define the pipeline
+    pipeline = Pipeline([
+        ('poly', PolynomialFeatures(include_bias=False)),
+        ('clf', LogisticRegression(penalty='l2', solver='lbfgs', max_iter=1000))
+    ])
+
+    # Define the parameter grid
+    param_grid = {
+        'poly__degree': [1, 2, 3, 4],  # Polynomial degrees to try
+        'clf__C': np.logspace(-4, 4, 20)  # Regularization strengths to try
+    }
+
+    # Set up k-fold cross-validation
+    cv = KFold(n_splits=5, shuffle=True, random_state=42)
+
+    # Perform grid search
+    grid_search = GridSearchCV(pipeline, param_grid, cv=cv, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X, y)
+
+    # Get the best estimator and parameters
+    best_estimator = grid_search.best_estimator_
+    best_params = grid_search.best_params_
+
+    print("Best parameters:", best_params)
+    print("Best cross-validation score:", grid_search.best_score_)
+
+    return best_estimator, best_params
+
+
 df = read_data(DATA_PATH)
 X1, X2, y = parse_data(df)
 
-# Plot original dataset
-plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
+# # Plot original dataset
+# plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
 
 # Augment features
-X_augmented = augment_features(X1, X2, degree=3)
+# X_augmented = augment_features(X1, X2, degree=3)
+#
+# # Plot first two dimensions of augmented dataset
+# plot_dataset(X_augmented[:, 0], X_augmented[:, 1], y,
+#              x_label='Augmented Feature 1', y_label='Augmented Feature 2',
+#              title='Augmented Dataset (First 2 Dimensions)')
+#
+# print(f"Original feature shape: {X1.shape[0]}x2")
+# print(f"Augmented feature shape: {X_augmented.shape}")
 
-# Plot first two dimensions of augmented dataset
-plot_dataset(X_augmented[:, 0], X_augmented[:, 1], y, 
-             x_label='Augmented Feature 1', y_label='Augmented Feature 2', 
-             title='Augmented Dataset (First 2 Dimensions)')
-
-print(f"Original feature shape: {X1.shape[0]}x2")
-print(f"Augmented feature shape: {X_augmented.shape}")
+X = np.column_stack((X1, X2))  # Combine original features
+best_model, best_params = train_logistic_regression_cv(X, y)
