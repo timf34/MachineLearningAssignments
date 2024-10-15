@@ -32,7 +32,7 @@ def plot_dataset(
 ) -> None:
     """
     Plot a dataset given two feature columns and a target column.
-    
+
     Args:
     X1 (np.ndarray): First feature column
     X2 (np.ndarray): Second feature column
@@ -51,6 +51,29 @@ def plot_dataset(
     plt.close()
 
 
+def augment_features(X1: np.ndarray, X2: np.ndarray, degree: int = 2) -> np.ndarray:
+    """
+    Augment the original two features with polynomial features.
+    """
+    X = np.column_stack((X1, X2))
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(X)
+    return X_poly
+
+
 df = read_data(DATA_PATH)
 X1, X2, y = parse_data(df)
-plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='My Dataset')
+
+# Plot original dataset
+plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
+
+# Augment features
+X_augmented = augment_features(X1, X2, degree=3)
+
+# Plot first two dimensions of augmented dataset
+plot_dataset(X_augmented[:, 0], X_augmented[:, 1], y, 
+             x_label='Augmented Feature 1', y_label='Augmented Feature 2', 
+             title='Augmented Dataset (First 2 Dimensions)')
+
+print(f"Original feature shape: {X1.shape[0]}x2")
+print(f"Augmented feature shape: {X_augmented.shape}")
