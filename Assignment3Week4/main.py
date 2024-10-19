@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import KFold, GridSearchCV
+from sklearn.model_selection import KFold, GridSearchCV, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.dummy import DummyClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, auc
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, auc, classification_report
 from typing import Tuple, Dict, Any
 
-DATA_PATH = "./data/week4_dataset1.csv"
+DATA_PATH = "./data/week4_dataset2.csv"
 GRAPHS_PATH = "./graphs/"
 
 
@@ -53,6 +53,67 @@ def create_pipeline() -> Pipeline:
     ])
 
 
+def plot_cv_results(cv_results: Dict[str, Any]) -> None:
+    """Plot cross-validation results."""
+    degrees = cv_results['param_poly__degree'].data
+    C_values = cv_results['param_clf__C'].data
+    scores = cv_results['mean_test_score']
+
+    plt.figure(figsize=(12, 8))
+    for degree in np.unique(degrees):
+        degree_scores = scores[degrees == degree]
+        degree_C_values = C_values[degrees == degree]
+        plt.semilogx(degree_C_values, degree_scores, label=f'Degree {degree}')
+
+    plt.xlabel('Regularization strength (C)')
+    plt.ylabel('Cross-validation accuracy')
+    plt.title('Cross-validation results')
+    plt.legend()
+    plt.savefig(f"{GRAPHS_PATH}cv_results.png")
+    plt.close()
+
+
+def plot_cv_scores_with_error_bars(cv_results: Dict[str, Any]) -> None:
+    """Plot cross-validation scores with error bars for different polynomial degrees."""
+    degrees = np.unique(cv_results['param_poly__degree'].data)
+    mean_scores = []
+    std_scores = []
+
+    for degree in degrees:
+        degree_scores = cv_results['mean_test_score'][cv_results['param_poly__degree'].data == degree]
+        mean_scores.append(np.mean(degree_scores))
+        std_scores.append(np.std(degree_scores))
+
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(degrees, mean_scores, yerr=std_scores, fmt='-o', capsize=5)
+    plt.xlabel('Polynomial Degree')
+    plt.ylabel('Cross-validation Accuracy')
+    plt.title('Cross-validation Scores with Error Bars')
+    plt.xticks(degrees)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.savefig(f"{GRAPHS_PATH}cv_scores_with_error_bars.png")
+    plt.close()
+
+
+def plot_decision_regions(X: np.ndarray, y: np.ndarray, model: Pipeline, title: str) -> None:
+    """Plot decision regions of the model."""
+    x_min, x_max = X[:, 0].min() - 0.2, X[:, 0].max() + 0.2
+    y_min, y_max = X[:, 1].min() - 0.2, X[:, 1].max() + 0.2
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 100),
+                         np.linspace(y_min, y_max, 100))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+
+    plt.figure(figsize=(10, 8))
+    plt.contourf(xx, yy, Z, alpha=0.4, cmap='RdYlBu')
+    scatter = plt.scatter(X[:, 0], X[:, 1], c=y, cmap='RdYlBu', edgecolor='black')
+    plt.colorbar(scatter)
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.title(title)
+    plt.savefig(f"{GRAPHS_PATH}{title.lower().replace(' ', '_')}.png")
+    plt.close()
+
 def train_logistic_regression_cv(X: np.ndarray, y: np.ndarray) -> Tuple[Pipeline, Dict[str, Any]]:
     """
     Train a Logistic Regression classifier with L2 regularization using cross-validation
@@ -61,7 +122,7 @@ def train_logistic_regression_cv(X: np.ndarray, y: np.ndarray) -> Tuple[Pipeline
     pipeline = create_pipeline()
 
     param_grid = {
-        'poly__degree': [1, 2, 3, 4],
+        'poly__degree': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         'clf__C': np.logspace(-4, 4, 20)
     }
 
@@ -105,10 +166,27 @@ def ia():
     plot_dataset(X, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
 
     # Train model with cross-validation (using polynomial features)
-    best_model, best_params = train_logistic_regression_cv(X, y)
+    pipeline = create_pipeline()
+    param_grid = {
+        'poly__degree': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        'clf__C': np.logspace(-4, 4, 20)
+    }
+    cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    grid_search = GridSearchCV(pipeline, param_grid, cv=cv, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X, y)
 
-    # Plot decision boundary
-    plot_decision_boundary(X, y, best_model, 'Decision Boundary')
+    best_model = grid_search.best_estimator_
+    best_params = grid_search.best_params_
+
+    print("Best parameters:", best_params)
+    print("Best cross-validation score:", grid_search.best_score_)
+
+    # Plot cross-validation results
+    plot_cv_results(grid_search.cv_results_)
+    # plot_cv_scores_with_error_bars(grid_search.cv_results_)
+
+    # Plot decision regions
+    plot_decision_regions(X, y, best_model, 'Decision Regions')
 
     # Evaluate model
     y_pred = best_model.predict(X)
@@ -116,16 +194,34 @@ def ia():
     conf_matrix = confusion_matrix(y, y_pred)
 
     print(f"Final model accuracy: {accuracy:.4f}")
-    print("Confusion Matrix:")
+    print("\nConfusion Matrix:")
     print(conf_matrix)
+    print("\nClassification Report:")
+    print(classification_report(y, y_pred))
 
     # Compare original and augmented feature shapes
     best_degree = best_params['poly__degree']
     poly = PolynomialFeatures(degree=best_degree, include_bias=False)
     X_augmented = poly.fit_transform(X)
-    print(f"Original feature shape: {X.shape}")
+    print(f"\nOriginal feature shape: {X.shape}")
     print(f"Augmented feature shape: {X_augmented.shape}")
     print(f"Best polynomial degree: {best_degree}")
+
+    # Perform cross-validation on the best model
+    cv_scores = cross_val_score(best_model, X, y, cv=5, scoring='accuracy')
+    print(f"\nCross-validation scores: {cv_scores}")
+    print(f"Mean CV accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
+
+    # Analysis and explanation
+    print("\nAnalysis and Explanation:")
+    print(f"1. The optimal polynomial degree of {best_degree} and regularization strength (C) of {best_params['clf__C']:.4f} were selected based on cross-validation accuracy.")
+    print("2. The cross-validation plot shows how accuracy varies with different polynomial degrees and regularization strengths.")
+    print("3. The decision regions plot illustrates how the model separates classes in the feature space.")
+    print("4. The confusion matrix and classification report provide detailed insights into the model's performance for each class.")
+    print(f"5. The model achieves an accuracy of {accuracy:.4f} on the entire dataset.")
+    print(f"6. Cross-validation results show a mean accuracy of {cv_scores.mean():.4f}, indicating good generalization.")
+    print("7. The polynomial features allow the logistic regression model to capture non-linear decision boundaries.")
+    print("\nNote: The exact optimal parameters may vary slightly due to random data splits in cross-validation.")
 
 
 def ib() -> None:
@@ -334,6 +430,6 @@ def compare_classifiers():
 
 
 if __name__ == "__main__":
-    # ia()
-    # ib()
+    ia()
+    ib()
     compare_classifiers()
