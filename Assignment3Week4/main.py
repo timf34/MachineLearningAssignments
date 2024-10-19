@@ -1,48 +1,36 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.pipeline import Pipeline
-from typing import List, Tuple
+from sklearn.metrics import accuracy_score, confusion_matrix
+from typing import Tuple, Dict, Any
 
 DATA_PATH = "./data/week4_dataset1.csv"
 GRAPHS_PATH = "./graphs/"
 
-
 def read_data(data_path: str = DATA_PATH) -> pd.DataFrame:
+    """Read the CSV data file."""
     return pd.read_csv(data_path, header=None)
 
-
-def parse_data(df: pd.DataFrame) -> (np.ndarray, np.ndarray, np.ndarray):
-    X1 = df.iloc[:, 0]
-    X2 = df.iloc[:, 1]
-    y = df.iloc[:, 2]
-    return X1, X2, y
-
+def parse_data(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+    """Extract features and target from the DataFrame."""
+    X = df.iloc[:, :2].values
+    y = df.iloc[:, 2].values
+    return X, y
 
 def plot_dataset(
-        X1: np.ndarray,
-        X2: np.ndarray,
-        y: np.ndarray,
-        x_label: str = 'X1',
-        y_label: str = 'X2',
-        title: str = 'Dataset Plot'
+    X: np.ndarray,
+    y: np.ndarray,
+    x_label: str = 'X1',
+    y_label: str = 'X2',
+    title: str = 'Dataset Plot'
 ) -> None:
-    """
-    Plot a dataset given two feature columns and a target column.
-
-    Args:
-    X1 (np.ndarray): First feature column
-    X2 (np.ndarray): Second feature column
-    y (np.ndarray): Target column
-    x_label (str): Label for x-axis
-    y_label (str): Label for y-axis
-    title (str): Title of the plot
-    """
+    """Plot a dataset given two feature columns and a target column."""
     plt.figure(figsize=(10, 8))
-    scatter = plt.scatter(X1, X2, c=y, cmap='viridis')
+    scatter = plt.scatter(X[:, 0], X[:, 1], c=y, cmap='viridis')
     plt.colorbar(scatter)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -51,75 +39,89 @@ def plot_dataset(
     plt.close()
 
 
-def augment_features(X1: np.ndarray, X2: np.ndarray, degree: int = 2) -> np.ndarray:
-    """
-    Augment the original two features with polynomial features.
-    """
-    X = np.column_stack((X1, X2))
-    poly = PolynomialFeatures(degree=degree, include_bias=False)
-    X_poly = poly.fit_transform(X)
-    return X_poly
-
-
-def train_logistic_regression_cv(X: np.ndarray, y: np.ndarray) -> Tuple[Pipeline, dict]:
-    """
-    Train a Logistic Regression classifier with L2 regularization using cross-validation
-    to select the best polynomial degree and regularization strength.
-
-    Args:
-    X (np.ndarray): Input features
-    y (np.ndarray): Target variable
-
-    Returns:
-    Tuple[Pipeline, dict]: Best estimator and best parameters
-    """
-    # Define the pipeline
-    pipeline = Pipeline([
+def create_pipeline() -> Pipeline:
+    """Create a pipeline with polynomial features, scaling, and logistic regression."""
+    return Pipeline([
         ('poly', PolynomialFeatures(include_bias=False)),
+        ('scaler', StandardScaler()),
         ('clf', LogisticRegression(penalty='l2', solver='lbfgs', max_iter=1000))
     ])
 
-    # Define the parameter grid
+
+def train_logistic_regression_cv(X: np.ndarray, y: np.ndarray) -> Tuple[Pipeline, Dict[str, Any]]:
+    """
+    Train a Logistic Regression classifier with L2 regularization using cross-validation
+    to select the best polynomial degree and regularization strength.
+    """
+    pipeline = create_pipeline()
+
     param_grid = {
-        'poly__degree': [1, 2, 3, 4],  # Polynomial degrees to try
-        'clf__C': np.logspace(-4, 4, 20)  # Regularization strengths to try
+        'poly__degree': [1, 2, 3, 4],
+        'clf__C': np.logspace(-4, 4, 20)
     }
 
-    # Set up k-fold cross-validation
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
 
-    # Perform grid search
     grid_search = GridSearchCV(pipeline, param_grid, cv=cv, scoring='accuracy', n_jobs=-1)
     grid_search.fit(X, y)
 
-    # Get the best estimator and parameters
-    best_estimator = grid_search.best_estimator_
-    best_params = grid_search.best_params_
-
-    print("Best parameters:", best_params)
+    print("Best parameters:", grid_search.best_params_)
     print("Best cross-validation score:", grid_search.best_score_)
 
-    return best_estimator, best_params
+    return grid_search.best_estimator_, grid_search.best_params_
 
 
-df = read_data(DATA_PATH)
-X1, X2, y = parse_data(df)
+def plot_decision_boundary(X: np.ndarray, y: np.ndarray, model: Pipeline, title: str) -> None:
+    """Plot the decision boundary of the model."""
+    x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
+    y_min, y_max = X[:, 1].min() - 0.5, X[:, 1].max() + 0.5
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02),
+                         np.arange(y_min, y_max, 0.02))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
 
-# # Plot original dataset
-plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
-
-# Augment features
-X_augmented = augment_features(X1, X2, degree=3)
-#
-# # Plot first two dimensions of augmented dataset
-plot_dataset(X_augmented[:, 0], X_augmented[:, 1], y,
-             x_label='Augmented Feature 1', y_label='Augmented Feature 2',
-             title='Augmented Dataset (First 2 Dimensions)')
-
-# Compare augmented and original feature shapes
-print(f"Original feature shape: {X1.shape}")
-print(f"Augmented feature shape: {X_augmented.shape}")
+    plt.figure(figsize=(10, 8))
+    plt.contourf(xx, yy, Z, alpha=0.4)
+    scatter = plt.scatter(X[:, 0], X[:, 1], c=y, cmap='viridis')
+    plt.colorbar(scatter)
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.title(title)
+    plt.savefig(f"{GRAPHS_PATH}{title.lower().replace(' ', '_')}.png")
+    plt.close()
 
 
-X = np.column_stack((X1, X2))  # Combine original features
-best_model, best_params = train_logistic_regression_cv(X, y)
+def ia():
+    # Read and parse data
+    df = read_data(DATA_PATH)
+    X, y = parse_data(df)
+
+    # Plot original dataset
+    plot_dataset(X, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
+
+    # Train model with cross-validation (using polynomial features)
+    best_model, best_params = train_logistic_regression_cv(X, y)
+
+    # Plot decision boundary
+    plot_decision_boundary(X, y, best_model, 'Decision Boundary')
+
+    # Evaluate model
+    y_pred = best_model.predict(X)
+    accuracy = accuracy_score(y, y_pred)
+    conf_matrix = confusion_matrix(y, y_pred)
+
+    print(f"Final model accuracy: {accuracy:.4f}")
+    print("Confusion Matrix:")
+    print(conf_matrix)
+
+    # Compare original and augmented feature shapes
+    best_degree = best_params['poly__degree']
+    poly = PolynomialFeatures(degree=best_degree, include_bias=False)
+    X_augmented = poly.fit_transform(X)
+    print(f"Original feature shape: {X.shape}")
+    print(f"Augmented feature shape: {X_augmented.shape}")
+    print(f"Best polynomial degree: {best_degree}")
+
+
+if __name__ == "__main__":
+    ia()
