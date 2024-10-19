@@ -106,18 +106,20 @@ df = read_data(DATA_PATH)
 X1, X2, y = parse_data(df)
 
 # # Plot original dataset
-# plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
+plot_dataset(X1, X2, y, x_label='Feature 1', y_label='Feature 2', title='Original Dataset')
 
 # Augment features
-# X_augmented = augment_features(X1, X2, degree=3)
+X_augmented = augment_features(X1, X2, degree=3)
 #
 # # Plot first two dimensions of augmented dataset
-# plot_dataset(X_augmented[:, 0], X_augmented[:, 1], y,
-#              x_label='Augmented Feature 1', y_label='Augmented Feature 2',
-#              title='Augmented Dataset (First 2 Dimensions)')
-#
-# print(f"Original feature shape: {X1.shape[0]}x2")
-# print(f"Augmented feature shape: {X_augmented.shape}")
+plot_dataset(X_augmented[:, 0], X_augmented[:, 1], y,
+             x_label='Augmented Feature 1', y_label='Augmented Feature 2',
+             title='Augmented Dataset (First 2 Dimensions)')
+
+# Compare augmented and original feature shapes
+print(f"Original feature shape: {X1.shape}")
+print(f"Augmented feature shape: {X_augmented.shape}")
+
 
 X = np.column_stack((X1, X2))  # Combine original features
 best_model, best_params = train_logistic_regression_cv(X, y)
