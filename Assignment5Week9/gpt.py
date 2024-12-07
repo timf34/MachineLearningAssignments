@@ -1,3 +1,5 @@
+from datetime import datetime
+import os
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -229,6 +231,14 @@ def model_training():
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+
+    # Save weights for model
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    save_dir = 'model_weights'
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, f'model_weights_{timestamp}.pt')
+    torch.save(m.state_dict(), save_path)
+    print(f"Model weights saved to {save_path}")
 
     # generate from the model
     context = torch.zeros((1, 1), dtype=torch.long, device=device)
