@@ -14,9 +14,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("using: ", device)
 eval_iters = 200
 
-n_embd = 256
+n_embd = 64
 n_head = 4
-n_layer = 1
+n_layer = 4
 
 dropout = 0.2
 # ------------
