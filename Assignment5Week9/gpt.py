@@ -74,14 +74,15 @@ def estimate_loss(model):
     model.train()
     return out
 
+
 class Head(nn.Module):
     """ one head of self-attention """
 
-    def __init__(self, head_size):
+    def __init__(self, head_size, use_bias=False):  # Add use_bias parameter
         super().__init__()
-        self.key = nn.Linear(n_embd, head_size, bias=True)
-        self.query = nn.Linear(n_embd, head_size, bias=True)
-        self.value = nn.Linear(n_embd, head_size, bias=True)
+        self.key = nn.Linear(n_embd, head_size, bias=use_bias)
+        self.query = nn.Linear(n_embd, head_size, bias=use_bias)
+        self.value = nn.Linear(n_embd, head_size, bias=use_bias)
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
 
         self.dropout = nn.Dropout(dropout)
@@ -105,9 +106,9 @@ class Head(nn.Module):
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
 
-    def __init__(self, num_heads, head_size):
+    def __init__(self, num_heads, head_size, use_bias=False):  # Add use_bias parameter
         super().__init__()
-        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Head(head_size, use_bias) for _ in range(num_heads)])
         self.proj = nn.Linear(head_size * num_heads, n_embd)
         self.dropout = nn.Dropout(dropout)
 
@@ -134,33 +135,33 @@ class FeedFoward(nn.Module):
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
 
-    def __init__(self, n_embd, n_head):
-        # n_embd: embedding dimension, n_head: the number of heads we'd like
+    def __init__(self, n_embd, n_head, use_bias=False, use_skip=True):  # Add use_skip parameter
         super().__init__()
         head_size = n_embd // n_head
-        self.sa = MultiHeadAttention(n_head, head_size)
+        self.sa = MultiHeadAttention(n_head, head_size, use_bias)
         self.ffwd = FeedFoward(n_embd)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
+        self.use_skip = use_skip
 
     def forward(self, x):
-        x = x + self.sa(self.ln1(x))
-        x = x + self.ffwd(self.ln2(x))
+        if self.use_skip:
+            x = x + self.sa(self.ln1(x))
+            x = x + self.ffwd(self.ln2(x))
+        else:
+            x = self.sa(self.ln1(x))
+            x = self.ffwd(self.ln2(x))
         return x
 
 
 class GPTLanguageModel(nn.Module):
-
-    def __init__(self):
+    def __init__(self, use_bias=False, use_skip=True):  # Add use_skip parameter
         super().__init__()
-        # each token directly reads off the logits for the next token from a lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
-        self.ln_f = nn.LayerNorm(n_embd) # final layer norm
+        self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head, use_bias=use_bias, use_skip=use_skip) for _ in range(n_layer)])
+        self.ln_f = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
-
-        # better init, not covered in the original GPT video, but important, will cover in followup video
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -210,11 +211,14 @@ class GPTLanguageModel(nn.Module):
         return idx
 
 
-def model_training():
-    model = GPTLanguageModel()
+def model_training(use_bias=False, use_skip=True):
+    model = GPTLanguageModel(use_bias=use_bias, use_skip=use_skip)
     m = model.to(device)
-    # print the number of parameters in the model
-    print(sum(p.numel() for p in m.parameters())/1e6, 'M parameters')
+    print(
+        f"Training model with {'bias' if use_bias else 'no bias'} in attention layers and {'skip connections' if use_skip else 'no skip connections'}")
+    print(sum(p.numel() for p in m.parameters()) / 1e6, 'M parameters')
+
+    # Rest of training code remains the same
 
     # create a PyTorch optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -271,18 +275,30 @@ def analyze_dataset(name, text):
 
 
 def main():
-    dataset_contents = {}
-    for name, file_path in datasets.items():
-        with open(file_path, 'r', encoding='utf-8') as f:
-            dataset_contents[name] = f.read()
-
-    # Analyze datasets
-    for name, text in dataset_contents.items():
-        analyze_dataset(name, text)
+    # dataset_contents = {}
+    # for name, file_path in datasets.items():
+    #     with open(file_path, 'r', encoding='utf-8') as f:
+    #         dataset_contents[name] = f.read()
+    #
+    # # Analyze datasets
+    # for name, text in dataset_contents.items():
+    #     analyze_dataset
+    pass
 
 
 if __name__ == "__main__":
-    # main()
-    model_training()
+    # https://claude.ai/chat/528a7ac1-7386-4f97-a4d8-c28d54cc2468
+    # print("Training model without bias terms:")
+    # model_training(use_bias=False)
+    # print("\nTraining model with bias terms:")
+    # model_training(use_bias=True)
+
+    # Test original model (with skip connections)
+    print("\nTraining model with skip connections:")
+    model_training(use_skip=True)
+
+    # Test model without skip connections
+    print("\nTraining model without skip connections:")
+    model_training(use_skip=False)
 
 
