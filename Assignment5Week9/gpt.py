@@ -240,10 +240,20 @@ def analyze_dataset(name, text):
     unique_chars = sorted(set(text))
     vocab_size = len(unique_chars)
     length = len(text)
+    # Word analysis
+    words = text.split()
+    unique_words = set(words)
+    sentences = text.split('\n')
+    non_empty_sentences = [s for s in sentences if s.strip()]
+
     print(f"Dataset: {name}")
-    print(f" - Vocabulary size: {vocab_size}")
+    print(f" - Vocabulary size (chars): {vocab_size}")
     print(f" - Total length: {length} characters")
-    print(f" - Sample (first 500 characters):\n{text[:500]}")
+    print(f" - Unique words: {len(unique_words)}")
+    print(f" - Total words: {len(words)}")
+    print(f" - Number of lines: {len(non_empty_sentences)}")
+    print(f" - Average words per line: {len(words) / len(non_empty_sentences):.2f}")
+    print(f" - Sample (first 100 characters):\n{text[:100]}")
     print("-" * 40)
 
 
