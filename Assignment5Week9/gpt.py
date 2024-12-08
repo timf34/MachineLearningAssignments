@@ -218,7 +218,8 @@ def model_training(use_bias=False, use_skip=True):
         f"Training model with {'bias' if use_bias else 'no bias'} in attention layers and {'skip connections' if use_skip else 'no skip connections'}")
     print(sum(p.numel() for p in m.parameters()) / 1e6, 'M parameters')
 
-    # Rest of training code remains the same
+    with open('training_results.txt', 'a') as f:
+        f.write(f"\nModel with bias={use_bias}, skip={use_skip}:\n")
 
     # create a PyTorch optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -229,6 +230,8 @@ def model_training(use_bias=False, use_skip=True):
         if iter % eval_interval == 0 or iter == max_iters - 1:
             losses = estimate_loss(model)
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+            with open('training_results.txt', 'a') as f:
+                f.write(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
         # sample a batch of data
         xb, yb = get_batch('train')
@@ -238,6 +241,8 @@ def model_training(use_bias=False, use_skip=True):
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+
+
 
     # Save weights for model
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
