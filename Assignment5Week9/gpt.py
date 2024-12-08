@@ -293,12 +293,24 @@ def main():
 
 def evaluate_model_on_test_set(model, test_file_path, model_weights_path, baseline=False):
     """Evaluate the given model on the test set."""
+    # First load the training data to get the vocabulary
+    with open(datasets["childSpeech_training"], 'r', encoding='utf-8') as f:
+        train_text = f.read()
+
+    # Create character mappings from training data
+    chars = sorted(list(set(train_text)))
+    stoi = {ch: i for i, ch in enumerate(chars)}
+    itos = {i: ch for i, ch in enumerate(chars)}
+
     # Load the test set
     with open(test_file_path, 'r', encoding='utf-8') as f:
         test_text = f.read()
 
-    # Encode the test set
-    test_data = torch.tensor(encode(test_text), dtype=torch.long)
+    # Filter out characters that aren't in the training vocabulary
+    filtered_test_text = ''.join(c for c in test_text if c in stoi)
+
+    # Encode the filtered test set
+    test_data = torch.tensor([stoi[c] for c in filtered_test_text], dtype=torch.long)
     test_data = test_data.to(device)
 
     # Prepare the model
@@ -334,7 +346,22 @@ def evaluate_model_on_test_set(model, test_file_path, model_weights_path, baseli
             total_batches += 1
 
     avg_loss = total_loss / total_batches
-    print(f"Test Loss: {avg_loss:.4f}")
+
+    # Print some statistics about the filtering
+    original_chars = set(test_text)
+    training_chars = set(train_text)
+    missing_chars = original_chars - training_chars
+
+    print(f"\nCharacter statistics:")
+    print(f"Characters in test set: {len(original_chars)}")
+    print(f"Characters in training set: {len(training_chars)}")
+    print(f"Characters filtered out: {len(missing_chars)}")
+    if missing_chars:
+        print(f"Missing characters: {sorted(missing_chars)}")
+    print(f"Original text length: {len(test_text)}")
+    print(f"Filtered text length: {len(filtered_test_text)}")
+    print(f"\nTest Loss: {avg_loss:.4f}")
+
     return avg_loss
 
 
