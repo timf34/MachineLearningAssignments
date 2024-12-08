@@ -292,13 +292,13 @@ if __name__ == "__main__":
     # model_training(use_bias=False)
     # print("\nTraining model with bias terms:")
     # model_training(use_bias=True)
+    use_bias = [False, True]
+    use_skip = [False, True]
 
-    # Test original model (with skip connections)
-    print("\nTraining model with skip connections:")
-    model_training(use_skip=True)
+    for i in use_bias:
+        for j in use_skip:
+            print(f"Training model with: \nBias: {i} \nSkip: {j}")
+            model_training(use_bias=i, use_skip=j)
 
-    # Test model without skip connections
-    print("\nTraining model without skip connections:")
-    model_training(use_skip=False)
 
 
