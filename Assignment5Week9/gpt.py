@@ -291,19 +291,115 @@ def main():
     pass
 
 
+def evaluate_model_on_test_set(model, test_file_path, model_weights_path, baseline=False):
+    """Evaluate the given model on the test set."""
+    # Load the test set
+    with open(test_file_path, 'r', encoding='utf-8') as f:
+        test_text = f.read()
+
+    # Encode the test set
+    test_data = torch.tensor(encode(test_text), dtype=torch.long)
+    test_data = test_data.to(device)
+
+    # Prepare the model
+    if not baseline:
+        model.load_state_dict(torch.load(model_weights_path, map_location=device))
+        model.eval()  # Set the model to evaluation mode
+        print(f"Model weights loaded from {model_weights_path}")
+
+    # Compute loss on the test set
+    batch_size = 64  # Adjust batch size if necessary
+    block_size = 256  # Same as during training
+    total_loss = 0
+    total_batches = 0
+
+    with torch.no_grad():
+        for i in range(0, len(test_data) - block_size, batch_size):
+            inputs = []
+            targets = []
+            for j in range(batch_size):
+                if i + j + block_size >= len(test_data):
+                    break
+                inputs.append(test_data[i + j:i + j + block_size])
+                targets.append(test_data[i + j + 1:i + j + block_size + 1])
+
+            if not inputs:
+                break
+
+            inputs = torch.stack(inputs).to(device)
+            targets = torch.stack(targets).to(device)
+
+            logits, loss = model(inputs, targets)
+            total_loss += loss.item()
+            total_batches += 1
+
+    avg_loss = total_loss / total_batches
+    print(f"Test Loss: {avg_loss:.4f}")
+    return avg_loss
+
+
+def create_baseline_model():
+    """Create a dummy/baseline model that predicts uniform probabilities."""
+
+    class BaselineModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.uniform_probs = nn.Parameter(torch.ones(vocab_size), requires_grad=False)
+
+        def forward(self, idx, targets=None):
+            B, T = idx.shape
+            logits = self.uniform_probs.unsqueeze(0).unsqueeze(0).repeat(B, T, 1)
+            if targets is None:
+                loss = None
+            else:
+                logits = logits.view(-1, vocab_size)
+                targets = targets.view(-1)
+                loss = F.cross_entropy(logits, targets)
+            return logits, loss
+
+    return BaselineModel().to(device)
+
+
+def main_evaluation():
+    # Load the trained model
+    trained_model = GPTLanguageModel().to(device)
+    test_file_path = datasets["childSpeech_test"]
+    model_weights_path = "model_weights/model_weights_20241207_224359.pt"
+
+    print("Evaluating trained model:")
+    trained_model_loss = evaluate_model_on_test_set(trained_model, test_file_path, model_weights_path)
+
+    print("\nEvaluating baseline model:")
+    baseline_model = create_baseline_model()
+    baseline_model_loss = evaluate_model_on_test_set(baseline_model, test_file_path, model_weights_path, baseline=True)
+
+    print("\nComparison:")
+    print(f"Trained Model Loss: {trained_model_loss:.4f}")
+    print(f"Baseline Model Loss: {baseline_model_loss:.4f}")
+
+    if trained_model_loss < baseline_model_loss:
+        print("The trained model performs better than the baseline.")
+    else:
+        print("The baseline performs comparably or better than the trained model.")
+
+
+if __name__ == "__main__":
+    main_evaluation()
+
+
 if __name__ == "__main__":
     # https://claude.ai/chat/528a7ac1-7386-4f97-a4d8-c28d54cc2468
     # print("Training model without bias terms:")
     # model_training(use_bias=False)
     # print("\nTraining model with bias terms:")
     # model_training(use_bias=True)
-    use_bias = [False, True]
-    use_skip = [False, True]
-
-    for i in use_bias:
-        for j in use_skip:
-            print(f"Training model with: \nBias: {i} \nSkip: {j}")
-            model_training(use_bias=i, use_skip=j)
-
+    # use_bias = [False, True]
+    # use_skip = [False, True]
+    #
+    # for i in use_bias:
+    #     for j in use_skip:
+    #         print(f"Training model with: \nBias: {i} \nSkip: {j}")
+    #         model_training(use_bias=i, use_skip=j)
+    main_evaluation()
 
 
