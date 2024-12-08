@@ -363,7 +363,7 @@ def create_baseline_model():
 def main_evaluation():
     # Load the trained model
     trained_model = GPTLanguageModel(use_bias=True, use_skip=True).to(device)
-    test_file_path = datasets["childSpeech_test"]
+    test_file_path = datasets["shakespeare"]
     model_weights_path = "model_weights/model_weights_20241208_190506.pt"
 
     print("Evaluating trained model:")
