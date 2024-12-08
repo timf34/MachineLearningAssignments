@@ -364,7 +364,7 @@ def main_evaluation():
     # Load the trained model
     trained_model = GPTLanguageModel().to(device)
     test_file_path = datasets["childSpeech_test"]
-    model_weights_path = "model_weights/model_weights_20241207_224359.pt"
+    model_weights_path = "model_weights/model_weights_20241208_190506.pt"
 
     print("Evaluating trained model:")
     trained_model_loss = evaluate_model_on_test_set(trained_model, test_file_path, model_weights_path)
