@@ -90,7 +90,7 @@ def get_batch(split):
     if split == 'train' and torch.rand(1).item() < 0.5:
         shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
         if shift != 0:
-            print(f"Transposing batch by {shift} semitone(s).")
+            # print(f"Transposing batch by {shift} semitone(s).")
             x = transpose_batch(x, shift, stoi, itos, note_tokens)
 
     x, y = x.to(device), y.to(device)
