@@ -47,37 +47,37 @@ train_data = data[:n]
 val_data = data[n:]
 
 # ------------------ DATA AUGMENTATION: TRANSPOSE FUNCTION -------------------
-# def transpose_batch(x, shift, stoi, itos, note_tokens):
-#     """
-#     Transpose the batch by shifting note tokens.
-#
-#     Parameters:
-#     - x: Tensor of shape (batch_size, block_size)
-#     - shift: Integer, number of semitones to shift (positive or negative)
-#     - stoi: Dictionary mapping characters to indices
-#     - itos: Dictionary mapping indices to characters
-#     - note_tokens: Set of tokens representing notes
-#
-#     Returns:
-#     - Transposed tensor
-#     """
-#     x_transposed = x.clone()
-#     for i in range(x.size(0)):  # Iterate over batch
-#         for j in range(x.size(1)):  # Iterate over sequence
-#             token = itos[x[i, j].item()]
-#             if token in note_tokens:
-#                 # Find current position in note_tokens
-#                 current_idx = note_tokens_sorted.index(token)
-#                 # Compute new index with shift and wrap around
-#                 new_idx = (current_idx + shift) % len(note_tokens_sorted)
-#                 new_token = note_tokens_sorted[new_idx]
-#                 x_transposed[i, j] = stoi[new_token]
-#     return x_transposed
-#
-# # Define note tokens (excluding rests)
-# # Adjust this set based on your actual note tokens
-# note_tokens = set(chars) - set(['R', ' '])  # Assuming 'R' is rest and ' ' is space
-# note_tokens_sorted = sorted(list(note_tokens))  # Sorted list for consistent shifting
+def transpose_batch(x, shift, stoi, itos, note_tokens):
+    """
+    Transpose the batch by shifting note tokens.
+
+    Parameters:
+    - x: Tensor of shape (batch_size, block_size)
+    - shift: Integer, number of semitones to shift (positive or negative)
+    - stoi: Dictionary mapping characters to indices
+    - itos: Dictionary mapping indices to characters
+    - note_tokens: Set of tokens representing notes
+
+    Returns:
+    - Transposed tensor
+    """
+    x_transposed = x.clone()
+    for i in range(x.size(0)):  # Iterate over batch
+        for j in range(x.size(1)):  # Iterate over sequence
+            token = itos[x[i, j].item()]
+            if token in note_tokens:
+                # Find current position in note_tokens
+                current_idx = note_tokens_sorted.index(token)
+                # Compute new index with shift and wrap around
+                new_idx = (current_idx + shift) % len(note_tokens_sorted)
+                new_token = note_tokens_sorted[new_idx]
+                x_transposed[i, j] = stoi[new_token]
+    return x_transposed
+
+# Define note tokens (excluding rests)
+# Adjust this set based on your actual note tokens
+note_tokens = set(chars) - set(['R', ' '])  # Assuming 'R' is rest and ' ' is space
+note_tokens_sorted = sorted(list(note_tokens))  # Sorted list for consistent shifting
 
 def get_batch(split):
     data_ = train_data if split == 'train' else val_data
@@ -87,11 +87,11 @@ def get_batch(split):
 
     # ------------------ DATA AUGMENTATION: RANDOM TRANSPOSE -------------------
     # With a probability of 0.5, transpose the batch by a random shift between -2 and +2 semitones
-    # if split == 'train' and torch.rand(1).item() < 0.5:
-    #     shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
-    #     if shift != 0:
-    #         print(f"Transposing batch by {shift} semitone(s).")
-    #         x = transpose_batch(x, shift, stoi, itos, note_tokens)
+    if split == 'train' and torch.rand(1).item() < 0.5:
+        shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
+        if shift != 0:
+            print(f"Transposing batch by {shift} semitone(s).")
+            x = transpose_batch(x, shift, stoi, itos, note_tokens)
 
     x, y = x.to(device), y.to(device)
     return x, y
@@ -162,6 +162,7 @@ class Head(nn.Module):
         out = wei @ v  # (B, T, T) @ (B, T, hs) -> (B, T, hs)
         return out
 
+
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
 
@@ -175,6 +176,7 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
         return out
+
 
 class FeedFoward(nn.Module):
     """ a simple linear layer followed by a non-linearity """
@@ -190,6 +192,7 @@ class FeedFoward(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
 
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
@@ -207,6 +210,7 @@ class Block(nn.Module):
         x = x + self.sa(self.ln1(x))
         x = x + self.ffwd(self.ln2(x))
         return x
+
 
 class GPTLanguageModel(nn.Module):
     def __init__(self):
