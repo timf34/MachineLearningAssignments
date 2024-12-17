@@ -5,26 +5,24 @@ import numpy as np
 # Raw log text
 log_text = """
 step 0: train loss 2.6962, train perplexity 14.8226, val loss 2.6865, val perplexity 14.6798
-Saved model checkpoint to checkpoints/model_iter_0.pt
-step 500: train loss 1.6796, train perplexity 5.3636, val loss 1.6102, val perplexity 5.0038
-Saved model checkpoint to checkpoints/model_iter_500.pt
-step 1000: train loss 1.3363, train perplexity 3.8049, val loss 1.3167, val perplexity 3.7309
-Saved model checkpoint to checkpoints/model_iter_1000.pt
-step 1500: train loss 1.1942, train perplexity 3.3009, val loss 1.2047, val perplexity 3.3358
-Saved model checkpoint to checkpoints/model_iter_1500.pt
-step 2000: train loss 1.1087, train perplexity 3.0304, val loss 1.1500, val perplexity 3.1583
-Saved model checkpoint to checkpoints/model_iter_2000.pt
-step 2500: train loss 1.0230, train perplexity 2.7816, val loss 1.1508, val perplexity 3.1608
-Saved model checkpoint to checkpoints/model_iter_2500.pt
-step 3000: train loss 0.9260, train perplexity 2.5245, val loss 1.1711, val perplexity 3.2255
-Saved model checkpoint to checkpoints/model_iter_3000.pt
-step 3500: train loss 0.8073, train perplexity 2.2418, val loss 1.2351, val perplexity 3.4386
-Saved model checkpoint to checkpoints/model_iter_3500.pt
-step 4000: train loss 0.6774, train perplexity 1.9688, val loss 1.3119, val perplexity 3.7133
-Saved model checkpoint to checkpoints/model_iter_4000.pt
-step 4500: train loss 0.5621, train perplexity 1.7543, val loss 1.4189, val perplexity 4.1324
-Saved model checkpoint to checkpoints/model_iter_4500.pt
-step 4999: train loss 0.4624, train perplexity 1.5879, val loss 1.5578, val perplexity 4.7481
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-0.pth
+step 500: train loss 1.6934, train perplexity 5.4380, val loss 1.6183, val perplexity 5.0444
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-500.pth
+step 1000: train loss 1.4376, train perplexity 4.2106, val loss 1.4017, val perplexity 4.0623
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-1000.pth
+step 1500: train loss 1.2794, train perplexity 3.5946, val loss 1.2742, val perplexity 3.5757
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-1500.pth
+step 2000: train loss 1.1884, train perplexity 3.2818, val loss 1.1942, val perplexity 3.3009
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-2000.pth
+step 2500: train loss 1.1184, train perplexity 3.0600, val loss 1.1613, val perplexity 3.1942
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-2500.pth
+step 3000: train loss 1.0571, train perplexity 2.8780, val loss 1.1478, val perplexity 3.1513
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-3000.pth
+step 3500: train loss 1.0050, train perplexity 2.7319, val loss 1.1553, val perplexity 3.1748
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-3500.pth
+step 4000: train loss 0.9382, train perplexity 2.5554, val loss 1.1697, val perplexity 3.2210
+Saved model checkpoint to checkpoints/15_33_17_12_2024/iters-4000.pth
+step 4500: train loss 0.8650, train perplexity 2.3751, val loss 1.2034, val perplexity 3.3316
 """
 
 # Initialize lists to store the data
@@ -53,7 +51,7 @@ for line in log_text.strip().split('\n'):
 
 # Create a figure with two subplots
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-fig.suptitle('V1.0 Training Metrics Over Time', fontsize=18, y=0.99)
+fig.suptitle('V1.1 Training Metrics Over Time', fontsize=18, y=0.99)
 
 # Plot losses
 ax1.plot(steps, train_losses, 'b-', label='Training Loss', marker='o')
