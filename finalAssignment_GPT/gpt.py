@@ -17,7 +17,8 @@ eval_iters = 200
 n_embd = 384
 n_head = 6
 n_layer = 6
-dropout = 0.2
+dropout = 0.3  # Increased dropout from 0.2 to 0.3
+weight_decay = 1e-5  # Added weight decay for regularization
 
 torch.manual_seed(1337)
 
@@ -45,15 +46,55 @@ n = int(0.9 * len(data))
 train_data = data[:n]
 val_data = data[n:]
 
+# ------------------ DATA AUGMENTATION: TRANSPOSE FUNCTION -------------------
+# def transpose_batch(x, shift, stoi, itos, note_tokens):
+#     """
+#     Transpose the batch by shifting note tokens.
+#
+#     Parameters:
+#     - x: Tensor of shape (batch_size, block_size)
+#     - shift: Integer, number of semitones to shift (positive or negative)
+#     - stoi: Dictionary mapping characters to indices
+#     - itos: Dictionary mapping indices to characters
+#     - note_tokens: Set of tokens representing notes
+#
+#     Returns:
+#     - Transposed tensor
+#     """
+#     x_transposed = x.clone()
+#     for i in range(x.size(0)):  # Iterate over batch
+#         for j in range(x.size(1)):  # Iterate over sequence
+#             token = itos[x[i, j].item()]
+#             if token in note_tokens:
+#                 # Find current position in note_tokens
+#                 current_idx = note_tokens_sorted.index(token)
+#                 # Compute new index with shift and wrap around
+#                 new_idx = (current_idx + shift) % len(note_tokens_sorted)
+#                 new_token = note_tokens_sorted[new_idx]
+#                 x_transposed[i, j] = stoi[new_token]
+#     return x_transposed
+#
+# # Define note tokens (excluding rests)
+# # Adjust this set based on your actual note tokens
+# note_tokens = set(chars) - set(['R', ' '])  # Assuming 'R' is rest and ' ' is space
+# note_tokens_sorted = sorted(list(note_tokens))  # Sorted list for consistent shifting
 
 def get_batch(split):
     data_ = train_data if split == 'train' else val_data
     ix = torch.randint(len(data_) - block_size, (batch_size,))
     x = torch.stack([data_[i:i + block_size] for i in ix])
     y = torch.stack([data_[i + 1:i + block_size + 1] for i in ix])
+
+    # ------------------ DATA AUGMENTATION: RANDOM TRANSPOSE -------------------
+    # With a probability of 0.5, transpose the batch by a random shift between -2 and +2 semitones
+    # if split == 'train' and torch.rand(1).item() < 0.5:
+    #     shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
+    #     if shift != 0:
+    #         print(f"Transposing batch by {shift} semitone(s).")
+    #         x = transpose_batch(x, shift, stoi, itos, note_tokens)
+
     x, y = x.to(device), y.to(device)
     return x, y
-
 
 @torch.no_grad()
 def estimate_loss():
@@ -71,7 +112,6 @@ def estimate_loss():
         out[split] = {'loss': avg_loss, 'perplexity': perplexity}
     model.train()
     return out
-
 
 def compute_baseline_perplexity():
     """
@@ -95,7 +135,6 @@ def compute_baseline_perplexity():
     baseline_perplexity = vocab_size  # perplexity = exp(log(vocab_size)) = vocab_size
     return baseline_loss, baseline_perplexity
 
-
 class Head(nn.Module):
     """ one head of self-attention """
 
@@ -110,19 +149,18 @@ class Head(nn.Module):
     def forward(self, x):
         # input of size (batch, time-step, channels)
         # output of size (batch, time-step, head size)
-        B,T,C = x.shape
+        B, T, C = x.shape
         k = self.key(x)   # (B,T,hs)
         q = self.query(x) # (B,T,hs)
         # compute attention scores ("affinities")
-        wei = q @ k.transpose(-2,-1) * k.shape[-1]**-0.5 # (B, T, hs) @ (B, hs, T) -> (B, T, T)
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
-        wei = F.softmax(wei, dim=-1) # (B, T, T)
+        wei = q @ k.transpose(-2,-1) * k.shape[-1]**-0.5  # (B, T, hs) @ (B, hs, T) -> (B, T, T)
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))  # (B, T, T)
+        wei = F.softmax(wei, dim=-1)  # (B, T, T)
         wei = self.dropout(wei)
         # perform the weighted aggregation of the values
-        v = self.value(x) # (B,T,hs)
-        out = wei @ v # (B, T, T) @ (B, T, hs) -> (B, T, hs)
+        v = self.value(x)  # (B,T,hs)
+        out = wei @ v  # (B, T, T) @ (B, T, hs) -> (B, T, hs)
         return out
-
 
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
@@ -138,7 +176,6 @@ class MultiHeadAttention(nn.Module):
         out = self.dropout(self.proj(out))
         return out
 
-
 class FeedFoward(nn.Module):
     """ a simple linear layer followed by a non-linearity """
 
@@ -153,7 +190,6 @@ class FeedFoward(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
 
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
@@ -171,7 +207,6 @@ class Block(nn.Module):
         x = x + self.sa(self.ln1(x))
         x = x + self.ffwd(self.ln2(x))
         return x
-
 
 class GPTLanguageModel(nn.Module):
     def __init__(self):
@@ -220,13 +255,15 @@ class GPTLanguageModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
 
-
 # Initialize the model and move it to the appropriate device
 model = GPTLanguageModel().to(device)
 print(sum(p.numel() for p in model.parameters()) / 1e6, 'M parameters')
 
-# Create a PyTorch optimizer
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+# Create a PyTorch optimizer with weight decay
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+# Create a learning rate scheduler that reduces LR when validation loss plateaus
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
 
 # Compute and print baseline perplexity
 baseline_loss, baseline_pp = compute_baseline_perplexity()
@@ -270,6 +307,9 @@ for iter in range(max_iters):
         checkpoint_path = os.path.join(checkpoint_dir, f'iters-{iter}.pth')
         torch.save(model.state_dict(), checkpoint_path)
         print(f"Saved model checkpoint to {checkpoint_path}")
+
+        # Update the learning rate scheduler based on validation loss
+        scheduler.step(val_loss)
 
     # Sample a batch of data
     xb, yb = get_batch('train')
