@@ -87,11 +87,11 @@ def get_batch(split):
 
     # ------------------ DATA AUGMENTATION: RANDOM TRANSPOSE -------------------
     # With a probability of 0.5, transpose the batch by a random shift between -2 and +2 semitones
-    if split == 'train' and torch.rand(1).item() < 0.5:
-        shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
-        if shift != 0:
-            # print(f"Transposing batch by {shift} semitone(s).")
-            x = transpose_batch(x, shift, stoi, itos, note_tokens)
+    # if split == 'train' and torch.rand(1).item() < 0.5:
+    #     shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
+    #     if shift != 0:
+    #         # print(f"Transposing batch by {shift} semitone(s).")
+    #         x = transpose_batch(x, shift, stoi, itos, note_tokens)
 
     x, y = x.to(device), y.to(device)
     return x, y
