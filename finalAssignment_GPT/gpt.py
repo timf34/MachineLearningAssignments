@@ -15,9 +15,9 @@ learning_rate = 6e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
 n_embd = 384
-n_head = 4
-n_layer = 4
-dropout = 0.3  # Increased dropout from 0.2 to 0.3
+n_head = 3
+n_layer = 3
+dropout = 0.5  # Increased dropout from 0.2 to 0.3 to 0.5
 weight_decay = 1e-5  # Added weight decay for regularization
 
 torch.manual_seed(1337)
@@ -87,11 +87,11 @@ def get_batch(split):
 
     # ------------------ DATA AUGMENTATION: RANDOM TRANSPOSE -------------------
     # With a probability of 0.5, transpose the batch by a random shift between -2 and +2 semitones
-    if split == 'train' and torch.rand(1).item() < 0.5:
-        shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
-        if shift != 0:
-            # print(f"Transposing batch by {shift} semitone(s).")
-            x = transpose_batch(x, shift, stoi, itos, note_tokens)
+    # if split == 'train' and torch.rand(1).item() < 0.5:
+    #     shift = torch.randint(-2, 3, (1,)).item()  # Random shift: -2, -1, 0, 1, 2
+    #     if shift != 0:
+    #         # print(f"Transposing batch by {shift} semitone(s).")
+    #         x = transpose_batch(x, shift, stoi, itos, note_tokens)
 
     x, y = x.to(device), y.to(device)
     return x, y
