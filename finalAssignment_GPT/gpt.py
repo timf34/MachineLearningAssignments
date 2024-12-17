@@ -1,11 +1,13 @@
 import math
+import os  # Added for directory management
+import json  # Added for saving losses
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
 # hyperparameters
-batch_size = 64 # how many independent sequences will we process in parallel?
-block_size = 256 # what is the maximum context length for predictions?
+batch_size = 64  # how many independent sequences will we process in parallel?
+block_size = 256  # what is the maximum context length for predictions?
 max_iters = 5000
 eval_interval = 500
 learning_rate = 3e-4
@@ -218,14 +220,29 @@ class GPTLanguageModel(nn.Module):
         return idx
 
 
+# Initialize the model and move it to the appropriate device
 model = GPTLanguageModel().to(device)
 print(sum(p.numel() for p in model.parameters()) / 1e6, 'M parameters')
 
+# Create a PyTorch optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+# Compute and print baseline perplexity
 baseline_loss, baseline_pp = compute_baseline_perplexity()
 print(f"Baseline (random) cross-entropy: {baseline_loss:.4f}, perplexity: {baseline_pp:.4f}")
 
+# ------------------ Setup for Saving Models and Losses -------------------
+# Define a directory to save model checkpoints
+checkpoint_dir = 'checkpoints'
+os.makedirs(checkpoint_dir, exist_ok=True)
+
+# Initialize lists to store loss metrics
+training_losses = []
+validation_losses = []
+training_perplexities = []
+validation_perplexities = []
+
+# ------------------ Training Loop -------------------
 for iter in range(max_iters):
     # Evaluate the model periodically
     if iter % eval_interval == 0 or iter == max_iters - 1:
@@ -235,15 +252,49 @@ for iter in range(max_iters):
         train_pp = metrics['train']['perplexity']
         val_pp = metrics['val']['perplexity']
         print(
-            f"step {iter}: train loss {train_loss:.4f}, train perplexity {train_pp:.4f}, val loss {val_loss:.4f}, val perplexity {val_pp:.4f}")
+            f"step {iter}: train loss {train_loss:.4f}, train perplexity {train_pp:.4f}, "
+            f"val loss {val_loss:.4f}, val perplexity {val_pp:.4f}"
+        )
 
+        # Append metrics to the lists
+        training_losses.append({'iter': iter, 'loss': train_loss})
+        validation_losses.append({'iter': iter, 'loss': val_loss})
+        training_perplexities.append({'iter': iter, 'perplexity': train_pp})
+        validation_perplexities.append({'iter': iter, 'perplexity': val_pp})
+
+        # Save the model checkpoint
+        checkpoint_path = os.path.join(checkpoint_dir, f'model_iter_{iter}.pt')
+        torch.save(model.state_dict(), checkpoint_path)
+        print(f"Saved model checkpoint to {checkpoint_path}")
+
+    # Sample a batch of data
     xb, yb = get_batch('train')
+
+    # Evaluate the loss
     _, loss = model(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
-# Generate a short melody sample
+# ------------------ Save Loss Metrics -------------------
+# Combine all loss metrics into a single dictionary
+loss_metrics = {
+    'training_losses': training_losses,
+    'validation_losses': validation_losses,
+    'training_perplexities': training_perplexities,
+    'validation_perplexities': validation_perplexities
+}
+
+# Define the path to save the loss metrics
+loss_metrics_path = 'losses.json'
+
+# Save the loss metrics to a JSON file
+with open(loss_metrics_path, 'w') as f:
+    json.dump(loss_metrics, f, indent=4)
+
+print(f"Saved loss metrics to {loss_metrics_path}")
+
+# ------------------ Generate a Short Melody Sample -------------------
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 generated_sequence = model.generate(context, max_new_tokens=200)[0].tolist()
 generated_melody = decode(generated_sequence)
