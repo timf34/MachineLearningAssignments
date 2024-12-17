@@ -1,3 +1,4 @@
+import datetime
 import math
 import os  # Added for directory management
 import json  # Added for saving losses
@@ -231,16 +232,19 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 baseline_loss, baseline_pp = compute_baseline_perplexity()
 print(f"Baseline (random) cross-entropy: {baseline_loss:.4f}, perplexity: {baseline_pp:.4f}")
 
-# ------------------ Setup for Saving Models and Losses -------------------
-# Define a directory to save model checkpoints
-checkpoint_dir = 'checkpoints'
-os.makedirs(checkpoint_dir, exist_ok=True)
-
 # Initialize lists to store loss metrics
 training_losses = []
 validation_losses = []
 training_perplexities = []
 validation_perplexities = []
+
+# ------------------ Setup for Saving Models and Losses -------------------
+# Define a directory to save model checkpoints with a unique timestamp
+current_time = datetime.datetime.now().strftime("%H_%M_%d_%m_%Y")  # hours_minutes_date_month_year
+checkpoint_dir = os.path.join('checkpoints', current_time)
+os.makedirs(checkpoint_dir, exist_ok=True)
+
+print(f"Model checkpoints will be saved in: {checkpoint_dir}")
 
 # ------------------ Training Loop -------------------
 for iter in range(max_iters):
@@ -262,8 +266,8 @@ for iter in range(max_iters):
         training_perplexities.append({'iter': iter, 'perplexity': train_pp})
         validation_perplexities.append({'iter': iter, 'perplexity': val_pp})
 
-        # Save the model checkpoint
-        checkpoint_path = os.path.join(checkpoint_dir, f'model_iter_{iter}.pt')
+        # Save the model checkpoint in the unique timestamped directory
+        checkpoint_path = os.path.join(checkpoint_dir, f'iters-{iter}.pth')
         torch.save(model.state_dict(), checkpoint_path)
         print(f"Saved model checkpoint to {checkpoint_path}")
 
@@ -285,8 +289,8 @@ loss_metrics = {
     'validation_perplexities': validation_perplexities
 }
 
-# Define the path to save the loss metrics
-loss_metrics_path = 'losses.json'
+# Define the path to save the loss metrics in the unique directory
+loss_metrics_path = os.path.join(checkpoint_dir, 'losses.json')
 
 # Save the loss metrics to a JSON file
 with open(loss_metrics_path, 'w') as f:
