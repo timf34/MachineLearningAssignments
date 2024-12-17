@@ -17,7 +17,7 @@ eval_iters = 200
 n_embd = 384
 n_head = 3
 n_layer = 3
-dropout = 0.5  # Increased dropout from 0.2 to 0.3 to 0.5
+dropout = 0.4  # Increased dropout from 0.2 to 0.3 to 0.5 to 0.4
 weight_decay = 1e-5  # Added weight decay for regularization
 
 torch.manual_seed(1337)
@@ -267,7 +267,7 @@ print(sum(p.numel() for p in model.parameters()) / 1e6, 'M parameters')
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
 # Create a learning rate scheduler that reduces LR when validation loss plateaus
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_iters, eta_min=1e-5)
 
 # Compute and print baseline perplexity
 baseline_loss, baseline_pp = compute_baseline_perplexity()
@@ -322,6 +322,10 @@ for iter in range(max_iters):
     _, loss = model(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
+
+    # Adding gradient clipping
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
     optimizer.step()
 
 # ------------------ Save Loss Metrics -------------------
