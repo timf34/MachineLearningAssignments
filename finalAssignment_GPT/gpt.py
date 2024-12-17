@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -37,17 +38,19 @@ encode = lambda s: [stoi[c] for c in s]
 decode = lambda l: ''.join([itos[i] for i in l])
 
 data = torch.tensor(encode(text), dtype=torch.long)
-n = int(0.9*len(data))
+n = int(0.9 * len(data))
 train_data = data[:n]
 val_data = data[n:]
+
 
 def get_batch(split):
     data_ = train_data if split == 'train' else val_data
     ix = torch.randint(len(data_) - block_size, (batch_size,))
-    x = torch.stack([data_[i:i+block_size] for i in ix])
-    y = torch.stack([data_[i+1:i+block_size+1] for i in ix])
+    x = torch.stack([data_[i:i + block_size] for i in ix])
+    y = torch.stack([data_[i + 1:i + block_size + 1] for i in ix])
     x, y = x.to(device), y.to(device)
     return x, y
+
 
 @torch.no_grad()
 def estimate_loss():
@@ -57,11 +60,38 @@ def estimate_loss():
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
             X, Y = get_batch(split)
-            logits, loss = model(X, Y)
+            _, loss = model(X, Y)
             losses[k] = loss.item()
-        out[split] = losses.mean()
+        avg_loss = losses.mean().item()
+        # Compute perplexity = exp(cross_entropy)
+        perplexity = math.exp(avg_loss)
+        out[split] = {'loss': avg_loss, 'perplexity': perplexity}
     model.train()
     return out
+
+
+def compute_baseline_perplexity():
+    """
+    Computes the perplexity of a simple baseline model that predicts uniformly
+    at random from the vocabulary. The baseline does not depend on context.
+    It simply guesses each next token with probability = 1/vocab_size.
+    """
+    # We'll evaluate on the validation set
+    # The cross-entropy for a uniform distribution over vocab_size for a given
+    # target token is -log(1/vocab_size) = log(vocab_size).
+    # If predictions are uniform random, cross-entropy is just log(vocab_size).
+    # Perplexity for uniform guesser is just vocab_size.
+
+    # However, let's confirm this by directly computing the average negative log-likelihood:
+    # The probability assigned to the correct token = 1/vocab_size
+    # negative log likelihood for each token = -log(1/vocab_size) = log(vocab_size)
+    # so cross-entropy = log(vocab_size), perplexity = exp(log(vocab_size)) = vocab_size.
+
+    # Direct calculation:
+    baseline_loss = math.log(vocab_size)  # since cross entropy = log(vocab_size)
+    baseline_perplexity = vocab_size  # perplexity = exp(log(vocab_size)) = vocab_size
+    return baseline_loss, baseline_perplexity
+
 
 class Head(nn.Module):
     """ one head of self-attention """
@@ -90,6 +120,7 @@ class Head(nn.Module):
         out = wei @ v # (B, T, T) @ (B, T, hs) -> (B, T, hs)
         return out
 
+
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
 
@@ -103,6 +134,7 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
         return out
+
 
 class FeedFoward(nn.Module):
     """ a simple linear layer followed by a non-linearity """
@@ -118,6 +150,7 @@ class FeedFoward(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
 
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
@@ -135,6 +168,7 @@ class Block(nn.Module):
         x = x + self.sa(self.ln1(x))
         x = x + self.ffwd(self.ln2(x))
         return x
+
 
 class GPTLanguageModel(nn.Module):
     def __init__(self):
@@ -165,14 +199,12 @@ class GPTLanguageModel(nn.Module):
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.lm_head(x)
-
         loss = None
         if targets is not None:
             B, T, C = logits.shape
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
+            logits = logits.view(B * T, C)
+            targets = targets.view(B * T)
             loss = F.cross_entropy(logits, targets)
-
         return logits, loss
 
     def generate(self, idx, max_new_tokens):
@@ -185,23 +217,33 @@ class GPTLanguageModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
 
+
 model = GPTLanguageModel().to(device)
-print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
+print(sum(p.numel() for p in model.parameters()) / 1e6, 'M parameters')
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+baseline_loss, baseline_pp = compute_baseline_perplexity()
+print(f"Baseline (random) cross-entropy: {baseline_loss:.4f}, perplexity: {baseline_pp:.4f}")
+
 for iter in range(max_iters):
+    # Evaluate the model periodically
     if iter % eval_interval == 0 or iter == max_iters - 1:
-        losses = estimate_loss()
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        metrics = estimate_loss()
+        train_loss = metrics['train']['loss']
+        val_loss = metrics['val']['loss']
+        train_pp = metrics['train']['perplexity']
+        val_pp = metrics['val']['perplexity']
+        print(
+            f"step {iter}: train loss {train_loss:.4f}, train perplexity {train_pp:.4f}, val loss {val_loss:.4f}, val perplexity {val_pp:.4f}")
 
     xb, yb = get_batch('train')
-    logits, loss = model(xb, yb)
+    _, loss = model(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
-# Generate a short melody
+# Generate a short melody sample
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 generated_sequence = model.generate(context, max_new_tokens=200)[0].tolist()
 generated_melody = decode(generated_sequence)
